@@ -149,7 +149,7 @@ By default the policy chain runs in `/api/action` on the client side, so the dem
 3. Set `ARCADE_HOOKS_TOKEN` in `.env` to match the extension's bearer token
 4. Attach the extension to your gateway with `fail-closed` mode for the pre-execution hook
 
-Full walkthrough in [CONTEXTUAL_ACCESS.md](./CONTEXTUAL_ACCESS.md).
+Full walkthrough in [CONTEXTUAL_ACCESS.md](./docs/CONTEXTUAL_ACCESS.md).
 
 Two policies enforce at the gateway: `pii-outbound` (scans draft for SSN and credit-card patterns) and `internal-only-outbound` (restricts Gmail sends to `INTERNAL_DOMAIN`). A third, `high-risk-needs-mfa`, stays client-side — the webhook contract is synchronous with a 5-second timeout and has no native way to pause for out-of-band MFA approval. See [Feature requests](#feature-requests-for-arcade).
 
