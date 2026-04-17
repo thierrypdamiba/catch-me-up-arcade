@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://mms.businesswire.com/media/20250318815130/en/2413462/4/arcade_logo.jpg" alt="Arcade" width="260" />
+  <img src="./public/arcade-logo.svg" alt="Arcade" width="120" />
 </p>
 
 # Catch Me Up
