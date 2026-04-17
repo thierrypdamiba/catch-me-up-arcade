@@ -4,9 +4,9 @@
 
 # Catch Me Up
 
-A catch-me-up agent built on [Arcade](https://arcade.dev). Scans Gmail, Slack, GitHub, Linear, and Google Calendar in parallel for a time window you pick, triages what matters, and drafts ready-to-send replies. Includes a real implementation of Arcade's [Contextual Access webhook contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) and a per-user Qdrant memory layer.
+A catch-me-up agent built on [Arcade](https://arcade.dev). Scans Gmail, Slack, GitHub, Linear, and Google Calendar in parallel for a time window you pick, triages what matters, and drafts ready-to-send replies. Includes an implementation of Arcade's [Contextual Access webhook contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) and a per-user Qdrant memory layer.
 
-Built for the Arcade take-home. Scaffolded with [`@arcadeai/create-agent`](https://github.com/ArcadeAI/create-arcade-agent) (ai-sdk template, v0.5.6).
+Scaffolded with [`@arcadeai/create-agent`](https://github.com/ArcadeAI/create-arcade-agent) (ai-sdk template, v0.5.6).
 
 ## What it does
 
@@ -68,7 +68,7 @@ Open [http://localhost:8765](http://localhost:8765), register, connect Arcade, a
 
 ## Arcade Gateway setup
 
-Enable only the tools below in your gateway. Narrower is better — Arcade's docs recommend it, and the [`/compare`](#what-arcade-replaces) page demonstrates why.
+Enable only the tools below in your gateway. Narrower is better. Arcade's docs recommend it, and the [`/compare`](#what-arcade-replaces) page demonstrates why.
 
 - **Slack:** `Slack_ListConversations`, `Slack_GetMessages`, `Slack_GetConversationMetadata`, `Slack_WhoAmI`
 - **Google Calendar:** `GoogleCalendar_ListEvents`, `GoogleCalendar_ListCalendars`, `GoogleCalendar_WhoAmI`
@@ -123,7 +123,7 @@ flowchart TB
   search -->|vector + user filter| qdrant
 ```
 
-One gateway URL, one webhook. The Contextual Access webhook at `/api/arcade/hooks/pre` implements Arcade's [v1.1.1-beta OpenAPI contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) — to my knowledge the first public TypeScript reference implementation of that contract. Policy logic in `lib/policies.ts` is shared between the webhook and the in-app gate, so enforcement stays consistent whether the gateway is configured to call the extension or not.
+One gateway URL, one webhook. The Contextual Access webhook at `/api/arcade/hooks/pre` implements Arcade's [v1.1.1-beta OpenAPI contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml), to my knowledge the first public TypeScript reference implementation of that contract. Policy logic in `lib/policies.ts` is shared between the webhook and the in-app gate, so enforcement stays consistent whether the gateway is configured to call the extension or not.
 
 ## Scope
 
@@ -186,11 +186,11 @@ This demo uses local-development defaults that don't scale:
 
 **90-minute livestream + 30-minute optional post-show. Co-hosted by Arcade and Slack Platform.**
 
-Arcade's docs say *"smaller toolsets improve tool selection quality."* The Derby turns that claim into a leaderboard the audience watches collapse in real time — then rescues it with deliberate gateway curation. Slack is the workflow partner because *"catch me up on what I missed in Slack"* is the single highest-signal catch-me-up source, and Slack Platform is [actively courting agent builders](https://api.slack.com/).
+Arcade's docs say *"smaller toolsets improve tool selection quality."* The Derby turns that claim into a leaderboard the audience watches collapse in real time, then rescues it with deliberate gateway curation. Slack is the workflow partner because *"catch me up on what I missed in Slack"* is the single highest-signal catch-me-up source, and Slack Platform is [actively courting agent builders](https://api.slack.com/).
 
 ### Format
 
-Fifteen-task battery of Slack workflows with cross-source context. Each task has a ground-truth correct tool call. Auto-graded. Live leaderboard. Four frontier models on stage — **GPT-5.4 · Claude Opus 4.7 · Claude Sonnet 4.6 · Gemini 2.5 Pro** — degrading in lockstep on Round 3 proves *"it's not a model problem, it's a toolset problem."*
+Fifteen-task battery of Slack workflows with cross-source context. Each task has a ground-truth correct tool call. Auto-graded. Live leaderboard. Three frontier models on stage — **GPT-5.4 · Claude Opus 4.7 · Gemini 2.5 Pro** — degrading in lockstep on Round 3 proves *"it's not a model problem, it's a toolset problem."*
 
 | Round | Toolset | Expected outcome | Narrative beat |
 |---|---|---|---|
