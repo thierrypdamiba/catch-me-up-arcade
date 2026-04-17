@@ -18,6 +18,8 @@ export interface DraftTarget {
   issueNumber?: string;
   repo?: string;
   recipientName?: string;
+  recipientEmail?: string;
+  subject?: string;
 }
 
 export interface InboxItem {

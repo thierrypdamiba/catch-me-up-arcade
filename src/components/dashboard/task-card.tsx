@@ -16,7 +16,7 @@ import {
   CardContent,
   Textarea,
 } from "@arcadeai/design-system";
-import { Check, Copy, Loader2, Send, ShieldAlert, ShieldCheck, Smartphone, X } from "lucide-react";
+import { Check, Copy, ExternalLink, KeyRound, Loader2, Send, ShieldAlert, ShieldCheck, Smartphone, X } from "lucide-react";
 import type { InboxItem } from "@/types/inbox";
 import { getSource } from "@/lib/sources";
 
@@ -62,6 +62,15 @@ interface ActionResponse {
   policy?: string;
   reason?: string;
   matched?: string[];
+  needsAuth?: string;
+  message?: string;
+  tool?: string;
+}
+
+interface AuthPrompt {
+  url: string;
+  message: string;
+  tool: string;
 }
 
 interface TaskCardProps {
@@ -83,6 +92,7 @@ export function TaskCard({ item }: TaskCardProps) {
   const [sendState, setSendState] = useState<SendState>("idle");
   const [sendError, setSendError] = useState<string | null>(null);
   const [denyInfo, setDenyInfo] = useState<PolicyDeny | null>(null);
+  const [authPrompt, setAuthPrompt] = useState<AuthPrompt | null>(null);
   const [mfaOpen, setMfaOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -118,6 +128,7 @@ export function TaskCard({ item }: TaskCardProps) {
     setSendState("sending");
     setSendError(null);
     setDenyInfo(null);
+    setAuthPrompt(null);
     try {
       const data = await postAction(mfaApproved);
       if (data.denied && data.action === "require_mfa") {
@@ -136,6 +147,15 @@ export function TaskCard({ item }: TaskCardProps) {
           reason: data.reason!,
           action: "block",
           matched: data.matched,
+        });
+        setSendState("idle");
+        return;
+      }
+      if (data.needsAuth) {
+        setAuthPrompt({
+          url: data.needsAuth,
+          message: data.message ?? "Arcade needs additional authorization for this tool.",
+          tool: data.tool ?? "the write tool",
         });
         setSendState("idle");
         return;
@@ -239,6 +259,40 @@ export function TaskCard({ item }: TaskCardProps) {
                 />
               ) : (
                 <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{draft}</p>
+              )}
+
+              {authPrompt && (
+                <div className="rounded-md border border-amber-400/40 bg-amber-50 p-3 text-sm dark:bg-amber-950/30">
+                  <div className="flex items-start gap-2">
+                    <KeyRound className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-400" />
+                    <div className="flex-1 space-y-2">
+                      <div className="font-semibold text-amber-900 dark:text-amber-200">
+                        Authorization needed for <code className="font-mono">{authPrompt.tool}</code>
+                      </div>
+                      <p className="text-amber-800 dark:text-amber-300">
+                        {authPrompt.message}
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <Button size="sm" asChild>
+                          <a href={authPrompt.url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="size-3" />
+                            Authorize
+                          </a>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setAuthPrompt(null);
+                            handleSend(false);
+                          }}
+                        >
+                          I authorized — retry
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {denyInfo && denyInfo.action === "block" && (

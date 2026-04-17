@@ -86,10 +86,14 @@ OUTPUT: For EACH item, output EXACTLY this on its own line:
     "ts": "<for slack threads: the parent message ts>",
     "issueNumber": "<for github/linear: the issue/pr number>",
     "repo": "<for github: owner/name>",
-    "recipientName": "<for display>"
+    "recipientName": "<display name>",
+    "recipientEmail": "<for gmail_reply: the recipient email address — REQUIRED. Extract from the thread's From/To header>",
+    "subject": "<for gmail_reply: start with 'Re: ' + the original subject>"
   }
 }
 ```
+
+For `gmail_reply`, `recipientEmail` and `subject` are MANDATORY — the send tool can't dispatch without them. Pull the recipient from the original Gmail thread's From/To header.
 
 Omit "draftReply" and "draftTarget" for items that don't need a response (ATTEND, FYI, IGNORE).
 

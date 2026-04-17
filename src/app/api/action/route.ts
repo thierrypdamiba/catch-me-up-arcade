@@ -28,17 +28,27 @@ interface ToolCall {
   args: Record<string, unknown>;
 }
 
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+
 function buildToolCall(target: DraftTarget, body: string): ToolCall | { error: string } {
   switch (target.type) {
     case "gmail_reply": {
-      if (!target.threadId) return { error: "gmail_reply requires threadId" };
+      // Gmail_SendEmail schema requires { recipient, subject, body }.
+      // Prefer the LLM-populated recipientEmail; fall back to the first
+      // email address we can find in the draft body.
+      const recipient = target.recipientEmail?.trim() || body.match(EMAIL_RE)?.[0];
+      if (!recipient) {
+        return {
+          error:
+            "Gmail send needs a recipient email. Add it to the draftTarget or include an address in the draft.",
+        };
+      }
+      const subject =
+        target.subject?.trim() ||
+        (target.recipientName ? `Re: (to ${target.recipientName})` : "Re: your message");
       return {
         name: "Gmail_SendEmail",
-        args: {
-          thread_id: target.threadId,
-          body,
-          recipient_name: target.recipientName,
-        },
+        args: { recipient, subject, body },
       };
     }
     case "slack_message": {
@@ -176,7 +186,48 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
-    const result = await tool.execute(resolved.args, {});
+    const result = (await tool.execute(resolved.args, {})) as {
+      isError?: boolean;
+      content?: { type: string; text: string }[];
+      structuredContent?: {
+        authorization_url?: string;
+        message?: string;
+        [k: string]: unknown;
+      };
+    } | null;
+
+    // Arcade surfaces auth-required responses via structuredContent.authorization_url
+    // (canonical path), with a human-readable JSON also stuffed into content[0].text.
+    // Check the structured field first, then fall back to parsing the text blob.
+    const asText = result?.content?.map((c) => c?.text).filter(Boolean).join("\n") ?? "";
+    let authUrl: string | undefined = result?.structuredContent?.authorization_url;
+    if (!authUrl && asText) {
+      try {
+        const parsed = JSON.parse(asText) as { authorization_url?: string };
+        authUrl = parsed.authorization_url;
+      } catch {
+        /* not JSON — ignore */
+      }
+    }
+
+    if (result?.isError) {
+      console.error(`[action] ${tool.name} isError:`, asText.slice(0, 500));
+      return Response.json(
+        { ok: false, tool: tool.name, error: asText.slice(0, 500) || "Tool reported failure" },
+        { status: 200 }
+      );
+    }
+    if (authUrl) {
+      const message =
+        (result?.structuredContent?.message as string | undefined) ??
+        "Arcade needs additional authorization for this tool.";
+      console.log(`[action] ${tool.name} needs auth: ${authUrl.slice(0, 80)}...`);
+      return Response.json(
+        { ok: false, needsAuth: authUrl, tool: tool.name, message },
+        { status: 200 }
+      );
+    }
+    console.log(`[action] ${tool.name} OK — args: ${JSON.stringify(resolved.args).slice(0, 200)}`);
     return Response.json({ ok: true, tool: tool.name, result });
   } catch (err) {
     console.error("[action] error:", err);

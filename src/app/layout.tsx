@@ -3,8 +3,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "Arcade Agent",
-  description: "AI agent powered by Arcade",
+  title: "Catch Me Up · powered by Arcade",
+  description: "A catch-me-up agent that reads your Gmail, Slack, GitHub, Linear, and Calendar in parallel — powered by Arcade.",
 };
 
 export default function RootLayout({
