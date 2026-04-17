@@ -184,7 +184,7 @@ This demo uses local-development defaults that don't scale:
 
 ## Event plan — The Slack Agent Derby
 
-**90-minute livestream + 30-minute optional post-show. Co-hosted by Arcade and Slack Platform.**
+**90-minute livestream + 30-minute optional post-show. Co-hosted by Arcade and Slack.**
 
 Arcade's docs say *"smaller toolsets improve tool selection quality."* The Derby turns that claim into a leaderboard the audience watches collapse in real time, then rescues it with deliberate gateway curation. Slack is the workflow partner because *"catch me up on what I missed in Slack"* is the single highest-signal catch-me-up source, and Slack Platform is [actively courting agent builders](https://api.slack.com/).
 
