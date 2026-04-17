@@ -4,266 +4,234 @@
 
 # Catch Me Up
 
-**A small Arcade agent that tells you what you missed while you were out — and drafts your replies.**
+A catch-me-up agent built on [Arcade](https://arcade.dev). Scans Gmail, Slack, GitHub, Linear, and Google Calendar in parallel for a time window you pick, triages what matters, and drafts ready-to-send replies. Includes a real implementation of Arcade's [Contextual Access webhook contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) and a per-user Qdrant memory layer.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Arcade](https://img.shields.io/badge/Arcade-MCP_Gateway-F97316)](https://arcade.dev)
-[![AI SDK](https://img.shields.io/badge/AI_SDK-v6-000)](https://ai-sdk.dev)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000)](https://nextjs.org)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.4-10A37F)](https://openai.com)
+Built for the Arcade take-home. Scaffolded with [`@arcadeai/create-agent`](https://github.com/ArcadeAI/create-arcade-agent) (ai-sdk template, v0.5.6).
 
-Built for the Arcade take-home. Reads Gmail, Slack, GitHub, Linear, and Google Calendar through one Arcade gateway, triages items by priority, and writes ready-to-send drafts. Real Contextual Access webhook enforcement. `/compare` page for the *"what Arcade replaces"* story.
+## What it does
 
-**Jump to:** [What I built](#what-i-built-and-why) · [Run it](#run-it-yourself) · [Architecture](#architecture) · [Core vs. bonus](#core-vs-bonus) · [Event plan](#event-plan--the-slack-agent-derby) · [Feature requests](#feature-requests-for-arcade)
+Click "Catch me up" with a 3–30 day window. The agent:
 
-> 📸 _Drop a dashboard screenshot here before submitting._
+1. Fans out parallel tool calls across the five sources through one Arcade gateway URL.
+2. Classifies every item returned with a category (`NEEDS_REPLY`, `NEEDS_REVIEW`, `NEEDS_DECISION`, `ATTEND`, `FYI`, `IGNORE`), a priority (`P0`–`P2`), and an effort estimate. These labels live in `lib/plan-prompt.md` — they're this app's taxonomy, not Arcade's.
+3. Writes a ready-to-send `draftReply` in the user's voice for anything reply-shaped.
+4. Indexes each classified item into a per-user Qdrant collection for later semantic search.
+5. Surfaces a **Send** button on each draft. Clicking it routes through the Arcade gateway. If the Contextual Access webhook is registered, policy enforces at the gateway; otherwise an in-app policy chain mirrors the same rules.
 
----
+## Prerequisites
 
-## What I built and why
+- Node.js >= 22
+- Bun >= 1.x (install from [bun.sh](https://bun.sh))
+- An [Arcade account](https://app.arcade.dev) and an MCP Gateway at [app.arcade.dev/mcp-gateways](https://app.arcade.dev/mcp-gateways)
+- An LLM API key — [OpenAI](https://platform.openai.com) (default: `gpt-5.4`) or [Anthropic](https://console.anthropic.com) (default: `claude-sonnet-4-6`)
+- *Optional, for memory:* [Qdrant Cloud](https://cloud.qdrant.io) free tier or local Docker, plus `OPENAI_API_KEY` for embeddings
 
-Every developer with an inbox has the same week: time off, then Monday of triage. Arcade's public demos span Slack-native assistants ([SlackAgent](https://github.com/ArcadeAI/SlackAgent)), Gmail tutorials ([tutorial-inbox-ai](https://github.com/ArcadeAI/tutorial-inbox-ai)), Executive Assistants ([AgentInbox](https://github.com/ArcadeAI/AgentInbox)), and open-ended chat ([chat.arcade.dev](https://chat.arcade.dev)) — but not a web-native, cross-source, draft-and-send *catch-me-up* with live policy enforcement. That's the angle.
-
-One click → three to thirty-day window → five sources in parallel. For every item the agent asks: *is this a message that needs a reply? a PR waiting for my review? a decision the team is blocked on? a meeting I need to attend? or just noise?* Every item gets a priority (P0 urgent → P2 can-wait) and an effort estimate (XS < 5min through L > 30min). When a reply is the obvious next step, the agent writes one in your voice — ready to send or edit. Click Send, the agent calls the right Arcade write tool, the reply lands.
-
-*(The category labels — `NEEDS_REPLY`, `NEEDS_REVIEW`, `NEEDS_DECISION`, `ATTEND`, `FYI`, etc. — live in `lib/plan-prompt.md`. They're mine, not Arcade's; swap them for your team's taxonomy.)*
-
-The Arcade-specific hook: **most agent demos skip the auth and policy layers.** I leaned into both. `/compare` shows the ~1,180 lines of OAuth + API-client code you didn't write, one tab per provider, honest skeletons. `/api/arcade/hooks/pre` implements Arcade's Contextual Access v1.1.1-beta webhook for real — PII and internal-only-outbound policies run at the gateway, not in the app. Auth story and governance story, both visible.
-
----
-
-## Run it yourself
+## Quick start
 
 ```bash
-# 1. Clone + install
-git clone <this-repo-url> catch-me-up && cd catch-me-up
 bun install
-
-# 2. Configure (see .env.example for all options)
 cp .env.example .env
-#   Fill in ARCADE_GATEWAY_URL + ANTHROPIC_API_KEY, then:
 echo "BETTER_AUTH_SECRET=$(openssl rand -hex 32)" >> .env
-#   Optional: OPENAI_API_KEY (memory), QDRANT_URL (memory), ARCADE_HOOKS_TOKEN (real policy)
-
-# 3. Verify + set up local DB
+# then fill in ARCADE_GATEWAY_URL + your LLM key in .env
 bun run doctor
 bunx drizzle-kit migrate
-
-# 4. Run
-bun run dev                      # http://localhost:8765
+bun run dev
 ```
 
-**First load:** register an account (Better Auth) → *Sign in with Arcade* → OAuth each of the 5 toolkits via popup → click **Catch me up**.
+Open [http://localhost:8765](http://localhost:8765), register, connect Arcade, authorize each toolkit once, click **Catch me up**.
 
-<details>
-<summary><b>Prerequisites</b></summary>
+## Configuration
 
-- ✅ [Bun](https://bun.sh) 1.x (or Node.js 22+)
-- ✅ [Arcade account](https://app.arcade.dev) with an MCP Gateway + at least the [read tools listed below](#arcade-gateway-tools)
-- ✅ [Anthropic API key](https://console.anthropic.com) (or `OPENAI_API_KEY` as fallback)
-- ✅ `BETTER_AUTH_SECRET` — generate with `openssl rand -hex 32`
+### Required
 
-</details>
+| Variable | Description |
+|---|---|
+| `ARCADE_GATEWAY_URL` | MCP Gateway URL from [app.arcade.dev/mcp-gateways](https://app.arcade.dev/mcp-gateways) |
+| `ANTHROPIC_API_KEY` *or* `OPENAI_API_KEY` | At least one LLM provider key |
+| `BETTER_AUTH_SECRET` | Session-signing key — generate with `openssl rand -hex 32` |
 
-<details>
-<summary><b>Arcade Gateway tools</b></summary>
+### Optional
 
-Minimum read set (from `bun run doctor`):
+| Variable | Description |
+|---|---|
+| `AGENT_MODEL` | Override model (provider auto-detected). Examples: `gpt-5.4`, `gpt-5.4-mini`, `claude-opus-4-7`, `claude-sonnet-4-6` |
+| `EMBEDDING_MODEL` | `text-embedding-3-large` (default, 3072-dim) or `text-embedding-3-small` |
+| `QDRANT_URL` | Enables the memory layer. Set together with `QDRANT_API_KEY` for Qdrant Cloud |
+| `QDRANT_API_KEY` | API key for your Qdrant cluster |
+| `QDRANT_COLLECTION` | Collection name (default: `catchmeup_items`) |
+| `ARCADE_HOOKS_TOKEN` | Bearer token Arcade uses to call your Contextual Access webhook |
+| `INTERNAL_DOMAIN` | Domain allowlist for the `internal-only-outbound` policy (default: `arcade.dev`) |
+| `ARCADE_CUSTOM_VERIFIER` | Set to `true` to enable COAT protection in production |
+| `ARCADE_API_KEY` | Required when custom verifier is enabled |
+| `DATABASE_URL` | SQLite file path (default: `local.db`) |
+| `PORT` | Server port (default: `8765`) |
 
-```
-Gmail:     ListEmails, ListThreads, GetThread, SearchThreads, WhoAmI
-Slack:     ListConversations, GetMessages, GetConversationMetadata, WhoAmI
-GitHub:    ListPullRequests, GetPullRequest, GetUserOpenItems, GetReviewWorkload, GetIssue, WhoAmI
-Linear:    GetNotifications, GetRecentActivity, ListIssues, GetIssue, ListProjects, GetProject, WhoAmI
-Calendar:  ListEvents, ListCalendars, WhoAmI
-```
+## Arcade Gateway setup
 
-For the **Send** button add these write tools: `Gmail_SendEmail`, `Slack_SendMessage`, `Github_CreateIssueComment`, `Linear_CreateComment`.
+Enable only the tools below in your gateway. Narrower is better — Arcade's docs recommend it, and the [`/compare`](#what-arcade-replaces) page demonstrates why.
 
-</details>
+- **Slack:** `Slack_ListConversations`, `Slack_GetMessages`, `Slack_GetConversationMetadata`, `Slack_WhoAmI`
+- **Google Calendar:** `GoogleCalendar_ListEvents`, `GoogleCalendar_ListCalendars`, `GoogleCalendar_WhoAmI`
+- **Linear:** `Linear_GetNotifications`, `Linear_GetRecentActivity`, `Linear_ListIssues`, `Linear_GetIssue`, `Linear_ListProjects`, `Linear_GetProject`, `Linear_WhoAmI`
+- **GitHub:** `Github_ListPullRequests`, `Github_GetPullRequest`, `Github_GetUserOpenItems`, `Github_GetUserRecentActivity`, `Github_GetReviewWorkload`, `Github_GetIssue`, `Github_WhoAmI`
+- **Gmail:** `Gmail_ListEmails`, `Gmail_ListThreads`, `Gmail_GetThread`, `Gmail_SearchThreads`, `Gmail_WhoAmI`
 
-<details>
-<summary><b>Optional: Qdrant memory layer</b></summary>
+For the Send button to execute writes, also add: `Gmail_SendEmail`, `Slack_SendMessage`, `Github_CreateIssueComment`, `Linear_CreateComment`.
 
-To enable semantic search across every item the agent has seen:
+## Make it yours
 
-1. Create a free cluster at [cloud.qdrant.io](https://cloud.qdrant.io)
-2. Set `QDRANT_URL`, `QDRANT_API_KEY`, and `OPENAI_API_KEY` (embeddings) in `.env`
-3. Restart `bun run dev`
+Every extensibility point is marked in the code. The files you'll actually touch:
 
-The collection auto-creates on first Catch Me Up. Search bar appears below the triage results.
-
-Local alternative: `docker run -p 6333:6333 qdrant/qdrant` and point `QDRANT_URL` at `http://localhost:6333`.
-
-</details>
-
-<details>
-<summary><b>Optional: real Arcade Contextual Access enforcement</b></summary>
-
-The policy webhook is implemented but runs in-app by default. To enforce at Arcade's gateway, deploy publicly (or use ngrok), register a Logic Extension pointing at `https://<your-url>/api/arcade/hooks`, set `ARCADE_HOOKS_TOKEN` to match the extension's bearer token. See [CONTEXTUAL_ACCESS.md](./CONTEXTUAL_ACCESS.md) for the full walkthrough.
-
-</details>
-
----
+| File | Purpose |
+|---|---|
+| `lib/system-prompt.md` | Agent personality and purpose |
+| `lib/plan-prompt.md` | Triage + draft generation rules |
+| `lib/agent.ts` | Model selection (auto-routes by `AGENT_MODEL` prefix) |
+| `lib/policies.ts` | Contextual Access policies (shared by client + webhook) |
+| `lib/qdrant.ts` | Memory layer — collection, distance, payload shape |
+| `lib/embed.ts` | Embedding model — swap OpenAI for Voyage/Cohere in one file |
+| `lib/arcade.ts` | MCP Gateway connection and OAuth |
+| `components/dashboard/empty-state.tsx` | "Catch me up" entry UI |
+| `app/compare/code-samples.ts` | Side-by-side code on the `/compare` page |
+| `.env` | Configuration |
 
 ## Architecture
 
 ```
-    ┌─────────── Next.js app ────────────┐
-    │ /api/plan    triage + drafts + idx │
-    │ /api/action  send + policy gate    │
-    │ /api/search  memory search          │
-    │ /api/arcade/hooks/*  ← Arcade calls │
-    └──┬───────────────────────────┬─────┘
-       │                           │ webhook
-       ▼                           │
-    ┌──────── Arcade MCP Gateway ──┘
-    │  tools · auth · policies
-    └──┬──────┬──────┬──────┬──────┬──
-       ▼      ▼      ▼      ▼      ▼
-     Gmail Slack GitHub Linear Calendar
+    Next.js app (this repo)
+     ├─ /api/plan              triage + drafts + fire-and-forget Qdrant index
+     ├─ /api/action            send draft (with client-side policy gate)
+     ├─ /api/search            memory search (filtered per-user)
+     └─ /api/arcade/hooks/*    Arcade calls us: pre, post, access, health
 
-    Qdrant  ◄── fire-and-forget upserts (per-user memory)
+    Arcade MCP Gateway ──► Gmail · Slack · GitHub · Linear · Calendar
+    Qdrant ◄── fire-and-forget upserts (per-user memory, vector search)
 ```
 
-- **One gateway URL** replaces five OAuth apps. Agent loop runs on **OpenAI GPT-5.4** by default (swap to `AGENT_MODEL=claude-opus-4-7` or `claude-sonnet-4-6` — provider auto-detected from the prefix).
-- **Parallel tool dispatch** is visible live in the dashboard's gateway activity log.
-- **Contextual Access webhook** implements Arcade's [v1.1.1-beta OpenAPI contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) — PII and internal-only-outbound policies enforce at the gateway when the extension is registered.
+One gateway URL, one webhook. The Contextual Access webhook at `/api/arcade/hooks/pre` implements Arcade's [v1.1.1-beta OpenAPI contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) — to my knowledge the first public TypeScript reference implementation of that contract. Policy logic in `lib/policies.ts` is shared between the webhook and the in-app gate, so enforcement stays consistent whether the gateway is configured to call the extension or not.
 
----
+## Scope
 
-## Core vs. bonus
+The take-home target was 3–4 hours. This splits cleanly:
 
-The assignment targets 3–4 hours. Here's what fits that scope and what I added on top for the Creativity axis:
+**In scope**
+- Catch-me-up framing, triage, draft generation, Send flow
+- In-app policy gate
+- `/compare` page with side-by-side code
+- Event plan
 
-| Layer | Scope | What it is |
-|---|---|---|
-| Scaffold + catch-me-up prompt rewrite | Core | `@arcadeai/create-agent` + rewritten `lib/system-prompt.md` + `lib/plan-prompt.md` |
-| Time-window UI + draft cards + Send flow | Core | `components/dashboard/empty-state.tsx` + `task-card.tsx` + `app/api/action/route.ts` |
-| In-app policy gate | Core | `lib/policies.ts` wired into `/api/action` |
-| `/compare` page with 5 source tabs | Core | Side-by-side of hand-rolled OAuth code vs. Arcade equivalent |
-| Event plan (Slack Agent Derby) | Core | In this README |
-| **Live gateway activity log** | Bonus | Makes parallel tool calls visible as they fire |
-| **Arcade Contextual Access webhook** | Bonus | Real v1.1.1-beta contract at `/api/arcade/hooks/*` |
-| **Qdrant memory + semantic search** | Bonus | Fire-and-forget indexing on every run; `/api/search` endpoint; dashboard search bar |
+**Added on top for Creativity**
+- `/api/arcade/hooks/*` — real v1.1.1-beta Contextual Access webhook
+- Qdrant memory layer + `/api/search`
+- Live gateway activity log in the dashboard
 
-The bonuses went beyond the 3-4 hour budget. They're labeled so reviewers see the deliberate split — the **core** is what I'd ship in scope; the **bonus** is what I'd push on if the goal is to demonstrate range.
+## Contextual Access
 
----
+By default the policy chain runs in `/api/action` on the client side, so the demo works without any external registration. To enforce at Arcade's gateway edge:
 
-## Repo layout
+1. Deploy publicly (or expose localhost with ngrok)
+2. Register a Logic Extension at [app.arcade.dev](https://app.arcade.dev) pointing at `https://<your-url>/api/arcade/hooks`
+3. Set `ARCADE_HOOKS_TOKEN` in `.env` to match the extension's bearer token
+4. Attach the extension to your gateway with `fail-closed` mode for the pre-execution hook
 
-```
-app/
-├── api/
-│   ├── plan/route.ts              # triage + draft generation + Qdrant indexing
-│   ├── action/route.ts            # send draft w/ client policy gate
-│   ├── search/route.ts            # semantic search over Qdrant memory
-│   └── arcade/hooks/              # Contextual Access webhook (pre/post/access/health)
-├── dashboard/page.tsx             # Catch Me Up + triage cards + Memory search
-└── compare/page.tsx               # side-by-side: what Arcade replaces
+Full walkthrough in [CONTEXTUAL_ACCESS.md](./CONTEXTUAL_ACCESS.md).
 
-lib/
-├── agent.ts                       # model selection (Claude 4.6 by default)
-├── system-prompt.md               # catch-me-up framing + draft rules
-├── plan-prompt.md                 # plan endpoint prompt
-├── arcade.ts                      # MCP Gateway connection + OAuth
-├── policies.ts                    # Contextual Access rules (shared client + webhook)
-├── hook-auth.ts                   # bearer-token verifier for /api/arcade/hooks
-├── qdrant.ts                      # memory: embed + upsert + search
-└── embed.ts                       # OpenAI embedding wrapper
+Two policies enforce at the gateway: `pii-outbound` (scans draft for SSN and credit-card patterns) and `internal-only-outbound` (restricts Gmail sends to `INTERNAL_DOMAIN`). A third, `high-risk-needs-mfa`, stays client-side — the webhook contract is synchronous with a 5-second timeout and has no native way to pause for out-of-band MFA approval. See [Feature requests](#feature-requests-for-arcade).
 
-components/dashboard/
-├── empty-state.tsx                # "Welcome back. What did you miss?"
-├── gateway-activity-log.tsx       # live tool-call stream
-├── arcade-value-card.tsx          # stats card
-├── memory-search.tsx              # Qdrant-backed search bar
-└── task-card.tsx                  # item + draft + Send/Edit/Skip
-```
+## Memory layer
 
----
+Enable by setting `QDRANT_URL`, `QDRANT_API_KEY`, and `OPENAI_API_KEY`. The collection auto-creates on first catch-up (1536 or 3072 dim cosine, payload indexed by `user_id`). Every run upserts with deterministic point IDs — re-running a catch-up updates existing points in place instead of duplicating.
+
+Dedup verified in production testing: 51 points across 4 runs, 0 hard duplicates, 0 near-duplicate summaries. To reset, delete the collection via the Qdrant API — next catch-up recreates it.
+
+## Troubleshooting
+
+**Port already in use.** Default port is 8765. Change via `PORT` in `.env`.
+
+**`ARCADE_GATEWAY_URL is missing`.** Create a gateway, add the tools listed above, copy the URL into `.env`.
+
+**Tool calls return authorization URLs.** Expected. The first time the agent hits a tool, the user OAuths that provider. The dashboard surfaces the auth link.
+
+**Login form appears unexpectedly.** `local.db` was deleted or `BETTER_AUTH_SECRET` changed. Register again; session persists for 7 days.
+
+**Memory search returns nothing.** Collection hasn't been populated yet — run a catch-up first.
+
+**Qdrant dimension mismatch error.** You switched `EMBEDDING_MODEL` after data was indexed. Drop the collection and re-run.
+
+## Production notes
+
+This demo uses local-development defaults that don't scale:
+
+- **OAuth tokens** live in `.arcade-auth/` (file-based). Multi-user deployments need a DB-backed store keyed by user ID, or enable `ARCADE_CUSTOM_VERIFIER=true` + `ARCADE_API_KEY` so Arcade holds tokens server-side.
+- **SQLite** via Better Auth is single-node. Swap for Postgres or Turso for serverless deploys.
+- **Contextual Access webhook** needs a public URL (deploy or ngrok) for Arcade's gateway to reach it.
+- **Embedding model swaps** require re-indexing — vectors aren't interchangeable across models.
 
 ## Event plan — The Slack Agent Derby
 
-**90-minute livestream + 30-min optional post-show. Co-hosted by Arcade and Slack Platform.**
+**90-minute livestream + 30-minute optional post-show. Co-hosted by Arcade and Slack Platform.**
 
-Arcade's docs say *"smaller toolsets improve tool selection quality."* The Derby turns that claim into a leaderboard the audience watches collapse in real time — then rescues it with deliberate gateway curation. Slack is the partner because *"catch me up on what I missed in Slack"* is the hero use case and Slack Platform is [actively courting agent builders](https://api.slack.com/).
+Arcade's docs say *"smaller toolsets improve tool selection quality."* The Derby turns that claim into a leaderboard the audience watches collapse in real time — then rescues it with deliberate gateway curation. Slack is the workflow partner because *"catch me up on what I missed in Slack"* is the single highest-signal catch-me-up source, and Slack Platform is [actively courting agent builders](https://api.slack.com/).
 
-### Format — 5 rounds, 4 frontier models, one test battery
+### Format
 
-Fixed 15-task battery of Slack workflows (with cross-source context from Gmail/GitHub/Linear/Calendar). Each task has a ground-truth correct tool call. Auto-graded. Live leaderboard. Four frontier models on stage — **GPT-5.4 · Claude Opus 4.7 · Claude Sonnet 4.6 · Gemini 2.5 Pro** — degrading across all four proves *"it's not a model problem, it's a toolset problem."*
+Fifteen-task battery of Slack workflows with cross-source context. Each task has a ground-truth correct tool call. Auto-graded. Live leaderboard. Four frontier models on stage — **GPT-5.4 · Claude Opus 4.7 · Claude Sonnet 4.6 · Gemini 2.5 Pro** — degrading in lockstep on Round 3 proves *"it's not a model problem, it's a toolset problem."*
 
 | Round | Toolset | Expected outcome | Narrative beat |
 |---|---|---|---|
-| **1. Warm-up** | 5 tools, Slack read-only | Everyone >90% | Baseline |
-| **2. The Gauntlet** | 50 tools (Slack + 4 cross-source) | ~10–20% drop | First selection errors |
-| **3. The Cliff** | 500 tools (full Arcade catalog) | Accuracy craters | *"This is why gateways exist"* — the hero clip |
-| **4. The Comeback** | 3 curated Slack gateways (5 / 20 / 50 tools) | Accuracy peaks at ~20 | Gateway curation as craft |
-| **5. BYOT** | Audience-submitted configs | Variable | Narrow-curation wins the leaderboard |
+| 1. Warm-up | 5 tools, Slack read-only | Everyone >90% | Baseline |
+| 2. The Gauntlet | 50 tools (Slack + 4 cross-source) | ~10–20% drop | First selection errors |
+| 3. The Cliff | 500 tools (full Arcade catalog) | Accuracy craters | *"This is why gateways exist"* — the hero clip |
+| 4. The Comeback | Three curated Slack gateways (5 / 20 / 50 tools) | Accuracy peaks at ~20 | Gateway curation as craft |
+| 5. BYOT | Audience-submitted gateway configs | Variable | Narrow-curation wins the leaderboard |
 
-### Agenda (90 min + 30 min post-show)
+### Agenda
 
-| Min | What | Lead |
+| Minutes | What | Lead |
 |---|---|---|
-| 0–10 | Intro + why Slack agents break at scale | Both |
+| 0–10 | Intro: why Slack agents break at scale | Both DevRel |
 | 10–25 | Rounds 1 + 2 | Arcade |
-| 25–45 | **Round 3 — the Cliff** (hero moment) | Arcade |
+| 25–45 | Round 3 — the Cliff (hero moment) | Arcade |
 | 45–65 | Round 4 — Slack-centric curation | Slack + Arcade |
-| 65–80 | Round 5 — BYOT live scoring | Both |
+| 65–80 | Round 5 — BYOT live scoring, audience vote | Both |
 | 80–90 | Open the test battery + CTAs | Both |
-| 90–120 | *Post-show* — gateway-sizing clinic, BYOT debriefs (Discord / X Spaces) | Both |
+| 90–120 | Post-show on Discord / X Spaces — gateway-sizing clinic, BYOT debriefs | Both |
 
-Why 90+30: Round 3 needs air time to land across 4 models. Round 4's "curation as craft" beat requires follow-along on the configs. The post-show is the conversion window — top 20% of viewers get hands-on gateway-sizing help, which is where the signups happen.
+### Why this works for both partners
 
-### Win for both partners
+- **Arcade** — Round 3's collapse validates the gateway picker's deliberate narrowness as a product skill, not DX friction. Round 4 teaches attendees how to *size* a gateway, filling a gap that isn't in any doc today.
+- **Slack** — every task is a Slack-workflow task, so Slack Platform owns the venue for *"how to build a Slack agent that actually works."* The Round 3 cutdown implicitly validates Slack's own curated tool-surface design against competitors' *"add all tools"* approach.
 
-- **Arcade** — Round 3's collapse validates the gateway picker's deliberate narrowness as the core product skill, not DX friction. Round 4 teaches attendees how to *size* a gateway — a mental model that wasn't in any doc.
-- **Slack** — every task is a Slack workflow. Slack Platform becomes the venue for *"how to build a Slack agent that actually works."* The Round 3 clip implicitly validates Slack's own curated tool-surface design vs. competitors' *"add all tools"* approach.
+### Evergreen artifacts
 
-### Ships with the event (evergreen)
+Open-source MIT test battery. Reusable leaderboard dashboard. Three reference Slack gateway configs (5 / 20 / 50 tools) as JSON. BYOT submission template. Other agent frameworks can score against the battery the week after the event, producing citations indefinitely.
 
-Open-source MIT **test battery** (other frameworks can score against it), reusable **leaderboard dashboard**, three **reference Slack gateway configs** (5/20/50 tools), **BYOT submission template**.
-
-### Co-promotion
-
-YouTube Live + Slack Twitch simulcast. Joint blog post. Round 3 cutdown for Twitter/LinkedIn. Mini-derby kiosk at Slack Frontiers with degradation-curve printouts.
-
-### Targets
+### Measurable targets
 
 | Metric | Target |
 |---|---|
 | Live + replay viewers | 2,000+ |
-| Round 3 highlight views (30d) | 25,000+ |
+| Round 3 highlight views (30 days) | 25,000+ |
 | BYOT submissions | 50+ |
-| Test-battery forks (30d) | 200+ |
+| Test-battery forks (30 days) | 200+ |
 | Arcade gateway signups attributed | 300+ |
 | Slack Platform app submissions attributed | 75+ |
-| External frameworks citing the battery (90d) | 3+ |
+| External frameworks citing the battery (90 days) | 3+ |
 
 ### Alternates
 
-Swap partner for **Linear** (product-dev), **GitHub** (Copilot Platform), or **Google Workspace** (enterprise). Format adapts to a 60-min workshop (30–80 attendees, build-along) or a 30-min hackathon starter segment (BYOT judged by both DevRel teams).
-
----
+Swap Slack for **Linear** (product-dev teams), **GitHub** (Copilot Platform co-host), or **Google Workspace** (enterprise Gmail + Calendar). For smaller audiences, the same content becomes a 60-minute workshop (booths, meetups, 30–80 attendees). For hackathons, a 30-minute opener with BYOT judged by both DevRel teams.
 
 ## Feature requests for Arcade
 
-Things I noticed while building that would sharpen the developer experience:
-
-1. **`REQUIRE_STEP_UP` response code on Contextual Access.** The [webhook contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) defines three response codes (`OK` / `CHECK_FAILED` / `RATE_LIMIT_EXCEEDED`) and a [5-second default timeout](https://docs.arcade.dev/guides/contextual-access/how-hooks-work) — no way to pause and wait for an out-of-band MFA approval. I enforce step-up in the app as a workaround. A new code plus an async approval callback would move MFA into the gateway where it belongs for multi-tenant deployments.
-2. **Toolkit-level presets in the gateway picker.** Setting up a multi-source catch-me-up gateway meant hunting down ~26 individual tool names from the scaffolder's doctor output. I didn't see a "`gmail.readonly`" or "`slack.read+send`" preset that would let me add a whole toolkit in one click and narrow later. (If this exists already, the docs don't surface it where first-timers look.) Even adding a `Copy from template →` dropdown on the picker would shave real time off onboarding.
+1. **`REQUIRE_STEP_UP` response code on Contextual Access.** The [webhook contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) defines three response codes (`OK` / `CHECK_FAILED` / `RATE_LIMIT_EXCEEDED`) and a [5-second default timeout](https://docs.arcade.dev/guides/contextual-access/how-hooks-work). There's no way to pause and wait for an out-of-band MFA approval. I enforce step-up in the app as a workaround. A new code plus an async approval callback would move MFA into the gateway where it belongs for multi-tenant deployments.
+2. **Toolkit-level presets in the gateway picker.** Setting up a multi-source catch-me-up gateway meant hunting ~26 individual tool names from the scaffolder's `doctor` output. I didn't find a "`gmail.readonly`" or "`slack.read+send`" preset to add a whole toolkit in one click and narrow later. If this exists already, the docs don't surface it where first-timers look.
 3. **Sync the scaffolder's doctor list with the live gateway catalog.** `@arcadeai/create-agent`'s doctor recommends `Github_GetUserRecentActivity`, which I couldn't find when I searched the picker. The first thing a new user does is cross-reference those lists — mismatches make them think they broke something.
-
----
 
 ## Credits
 
-- Scaffolded with [`@arcadeai/create-agent`](https://github.com/ArcadeAI/create-arcade-agent) (ai-sdk template, v0.5.6)
-- Arcade MCP Gateway · [Contextual Access v1.1.1-beta](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml)
-- [Vercel AI SDK v6](https://ai-sdk.dev)
-- [Qdrant JS client v1.17](https://github.com/qdrant/qdrant-js)
-- OpenAI `text-embedding-3-large` (3072-dim embeddings) · GPT-5.4 (default agent, auto-routes to Claude if `AGENT_MODEL=claude-*`)
+Scaffolded with [`@arcadeai/create-agent`](https://github.com/ArcadeAI/create-arcade-agent) (ai-sdk template, v0.5.6). Arcade MCP Gateway, [Contextual Access v1.1.1-beta](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) (MIT), Vercel AI SDK v6, Qdrant v1.17 JS client, OpenAI `text-embedding-3-large` for memory embeddings, GPT-5.4 or Claude Sonnet 4.6 for the agent.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE). Use freely.
+MIT — see [LICENSE](./LICENSE).
