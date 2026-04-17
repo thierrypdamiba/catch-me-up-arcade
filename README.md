@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://mms.businesswire.com/media/20250318815130/en/2413462/4/arcade_logo.jpg" alt="Arcade" width="260" />
+</p>
+
 # Catch Me Up
 
 **A small Arcade agent that tells you what you missed while you were out — and drafts your replies.**
