@@ -36,5 +36,5 @@ export function getModel() {
 // --- CUSTOMIZATION POINT ---
 // Edit system-prompt.md (in this directory) to change the agent's purpose.
 // AI-EDIT-SAFE: system prompt behavior
-export const systemPrompt = readFileSync(join(process.cwd(), "lib/system-prompt.md"), "utf-8");
-export const planPrompt = readFileSync(join(process.cwd(), "lib/plan-prompt.md"), "utf-8");
+export const systemPrompt = readFileSync(join(process.cwd(), "src/lib/system-prompt.md"), "utf-8");
+export const planPrompt = readFileSync(join(process.cwd(), "src/lib/plan-prompt.md"), "utf-8");

@@ -84,15 +84,15 @@ Every extensibility point is marked in the code. The files you'll actually touch
 
 | File | Purpose |
 |---|---|
-| `lib/system-prompt.md` | Agent personality and purpose |
-| `lib/plan-prompt.md` | Triage + draft generation rules |
-| `lib/agent.ts` | Model selection (auto-routes by `AGENT_MODEL` prefix) |
-| `lib/policies.ts` | Contextual Access policies (shared by client + webhook) |
-| `lib/qdrant.ts` | Memory layer — collection, distance, payload shape |
-| `lib/embed.ts` | Embedding model — swap OpenAI for Voyage/Cohere in one file |
-| `lib/arcade.ts` | MCP Gateway connection and OAuth |
-| `components/dashboard/empty-state.tsx` | "Catch me up" entry UI |
-| `app/compare/code-samples.ts` | Side-by-side code on the `/compare` page |
+| `src/lib/system-prompt.md` | Agent personality and purpose |
+| `src/lib/plan-prompt.md` | Triage + draft generation rules |
+| `src/lib/agent.ts` | Model selection (auto-routes by `AGENT_MODEL` prefix) |
+| `src/lib/policies.ts` | Contextual Access policies (shared by client + webhook) |
+| `src/lib/qdrant.ts` | Memory layer — collection, distance, payload shape |
+| `src/lib/embed.ts` | Embedding model — swap OpenAI for Voyage/Cohere in one file |
+| `src/lib/arcade.ts` | MCP Gateway connection and OAuth |
+| `src/components/dashboard/empty-state.tsx` | "Catch me up" entry UI |
+| `src/app/compare/code-samples.ts` | Side-by-side code on the `/compare` page |
 | `.env` | Configuration |
 
 ## Architecture
