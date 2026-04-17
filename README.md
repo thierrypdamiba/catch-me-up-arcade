@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/arcade-logo.svg" alt="Arcade" width="120" />
+  <img src="./public/arcade-hero.png" alt="Arcade" />
 </p>
 
 # Catch Me Up
@@ -97,15 +97,30 @@ Every extensibility point is marked in the code. The files you'll actually touch
 
 ## Architecture
 
-```
-    Next.js app (this repo)
-     ├─ /api/plan              triage + drafts + fire-and-forget Qdrant index
-     ├─ /api/action            send draft (with client-side policy gate)
-     ├─ /api/search            memory search (filtered per-user)
-     └─ /api/arcade/hooks/*    Arcade calls us: pre, post, access, health
+```mermaid
+flowchart TB
+  plan["/api/plan<br/>triage + drafts"]
+  action["/api/action<br/>send + policy gate"]
+  search["/api/search<br/>semantic recall"]
+  hooks["/api/arcade/hooks/*<br/>Contextual Access webhook"]
+  gateway[["Arcade MCP Gateway<br/>tools · auth · policies"]]
+  qdrant[("Qdrant<br/>per-user memory")]
+  Gmail
+  Slack
+  GitHub
+  Linear
+  Calendar
 
-    Arcade MCP Gateway ──► Gmail · Slack · GitHub · Linear · Calendar
-    Qdrant ◄── fire-and-forget upserts (per-user memory, vector search)
+  plan -->|parallel fan-out| gateway
+  action -->|write tools| gateway
+  gateway -.->|webhook callback| hooks
+  gateway --> Gmail
+  gateway --> Slack
+  gateway --> GitHub
+  gateway --> Linear
+  gateway --> Calendar
+  plan -->|fire-and-forget upsert| qdrant
+  search -->|vector + user filter| qdrant
 ```
 
 One gateway URL, one webhook. The Contextual Access webhook at `/api/arcade/hooks/pre` implements Arcade's [v1.1.1-beta OpenAPI contract](https://github.com/ArcadeAI/schemas/blob/main/logic_extensions/http/1.0/schema.yaml) — to my knowledge the first public TypeScript reference implementation of that contract. Policy logic in `lib/policies.ts` is shared between the webhook and the in-app gate, so enforcement stays consistent whether the gateway is configured to call the extension or not.
@@ -205,18 +220,6 @@ Fifteen-task battery of Slack workflows with cross-source context. Each task has
 ### Evergreen artifacts
 
 Open-source MIT test battery. Reusable leaderboard dashboard. Three reference Slack gateway configs (5 / 20 / 50 tools) as JSON. BYOT submission template. Other agent frameworks can score against the battery the week after the event, producing citations indefinitely.
-
-### Measurable targets
-
-| Metric | Target |
-|---|---|
-| Live + replay viewers | 2,000+ |
-| Round 3 highlight views (30 days) | 25,000+ |
-| BYOT submissions | 50+ |
-| Test-battery forks (30 days) | 200+ |
-| Arcade gateway signups attributed | 300+ |
-| Slack Platform app submissions attributed | 75+ |
-| External frameworks citing the battery (90 days) | 3+ |
 
 ### Alternates
 
