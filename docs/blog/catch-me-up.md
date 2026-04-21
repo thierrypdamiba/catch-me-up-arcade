@@ -2,7 +2,7 @@
 
 Every Monday after time off looks the same. You open your laptop, you feel the weight of five tabs you haven't touched, and you spend ninety minutes on inbox archaeology trying to figure out what actually happened while you were out. I've tried the usual fixes — smart filters, a Slack bot, a fourth attempt at inbox zero. None of them survived first contact with an actual missed week.
 
-So I built the thing I wanted. One button, five sources, real drafts ready to send. The first full catch-up across Gmail, Slack, GitHub, Linear, and Google Calendar took about thirty seconds. The reply I sent to the first triaged item landed in a colleague's inbox twenty seconds after that. The repo's [on GitHub](#) — fork it, point it at your accounts, and you'll have the same thing running locally by lunch.
+So I built the thing I wanted. One button, five sources, real drafts ready to send. The first full catch-up across Gmail, Slack, GitHub, Linear, and Google Calendar took about thirty seconds. The reply I sent to the first triaged item landed in a colleague's inbox twenty seconds after that. The repo's [on GitHub](https://github.com/thierrypdamiba/catch-me-up-arcade) — fork it, point it at your accounts, and you'll have the same thing running locally by lunch.
 
 This post is how the thing actually works — and the two layers you need that nobody tells you about until you hit them.
 
@@ -173,7 +173,7 @@ None of these are gripes. They're the first commits.
 
 ## Build your own
 
-The repo is at [github.com/thierrypdamiba/catch-me-up-arcade](#). Clone, set five env vars, run `bun run dev`, and you'll have the same thing pointed at your accounts within ten minutes.
+The repo is at [github.com/thierrypdamiba/catch-me-up-arcade](https://github.com/thierrypdamiba/catch-me-up-arcade). Clone, set five env vars, run `bun run dev`, and you'll have the same thing pointed at your accounts within ten minutes.
 
 ```bash
 git clone <repo-url> && cd catch-me-up-arcade
@@ -186,7 +186,7 @@ bun run doctor && bunx drizzle-kit migrate && bun run dev
 
 You'll need an Arcade gateway with the tools listed in the README's gateway setup section. The gateway picker takes about two minutes if you paste the tool names in bulk.
 
-If you want to push further, the event format I pitched for Arcade's first developer livestream with Slack Platform is the **[Slack Agent Derby](#)**: four frontier models on stage, five escalating toolset rounds, live leaderboard. Round 3 runs the agents against 500 tools from the full Arcade catalog and watches their tool-selection accuracy crater. Round 4 restores it with three curated Slack-centric gateways (5 / 20 / 50 tools) and lets the audience vote on the best curation. It's Arcade's *"smaller toolsets improve tool selection"* thesis, proven live instead of asserted in docs. Open-source test battery ships with the event as evergreen content.
+If you want to push further, the event format I pitched for Arcade's first developer livestream with Slack Platform is the **Slack Agent Derby** (full plan in the [repo README](https://github.com/thierrypdamiba/catch-me-up-arcade#event-plan--the-slack-agent-derby)): four frontier models on stage, five escalating toolset rounds, live leaderboard. Round 3 runs the agents against 500 tools from the full Arcade catalog and watches their tool-selection accuracy crater. Round 4 restores it with three curated Slack-centric gateways (5 / 20 / 50 tools) and lets the audience vote on the best curation. It's Arcade's *"smaller toolsets improve tool selection"* thesis, proven live instead of asserted in docs. Open-source test battery ships with the event as evergreen content.
 
 Fork the repo, run it against your accounts, send me what breaks. That's the fastest path from reading this post to having your own Monday-morning triage agent live — one gateway URL, one webhook, and a Qdrant collection that makes every run additive. Hands and memory. Nothing more than that.
 
